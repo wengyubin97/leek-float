@@ -228,6 +228,9 @@ function render(quotes) {
   listEl.innerHTML = html;
 
   // 绘制分时缩略图（从 minuteMap 取数，无数据则留空）
+  listEl.querySelectorAll('.stock-row').forEach((row) => {
+    row.style.setProperty('--spark-min-width', `${uiState.sparkW}px`);
+  });
   listEl.querySelectorAll('canvas.spark').forEach((cv) => {
     drawSpark(cv, minuteMap.get(cv.dataset.code));
   });
@@ -402,13 +405,13 @@ function updateMinuteMap(rawMap) {
 
 /** 绘制单只股票的分时缩略图（缩放=水平窗口；高度固定；Y轴适配可见窗口[min,max]；0轴上黄下蓝） */
 function drawSpark(canvas, record) {
-  const cw = uiState.sparkW;
+  const measuredWidth = Math.round(canvas.getBoundingClientRect().width);
+  const cw = Math.max(40, measuredWidth || uiState.sparkW);
   const ch = uiState.sparkH;
   const zoom = uiState.sparkZoom;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
-  canvas.style.width = `${cw}px`;
   canvas.style.height = `${ch}px`;
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
