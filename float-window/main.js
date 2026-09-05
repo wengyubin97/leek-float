@@ -240,12 +240,14 @@ function hotkeySubmenu() {
 }
 
 function sparkHeightSubmenu() {
+  const baseHeight = 26;
+  const scales = [1, 1.5, 2, 3, 4, 5];
   return {
-    label: '缩略图高度',
-    submenu: [10, 18, 26, 34, 44, 54, 60].map((height) => ({
-      label: `${height}px`,
+    label: '缩略图行高',
+    submenu: scales.map((scale) => ({
+      label: `${scale}×行高`,
       click: () => {
-        if (win && !win.isDestroyed()) win.webContents.send('set-spark-height', height);
+        if (win && !win.isDestroyed()) win.webContents.send('set-spark-height', Math.round(baseHeight * scale));
       },
     })),
   };

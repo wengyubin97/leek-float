@@ -15,7 +15,7 @@
 - **所有网络请求必须走主进程 IPC**。Electron renderer 的 XHR 受 CORS/同源限制：`qt.gtimg.cn` 报 Network Error、`proxy.finance.qq.com`（smartbox 搜索）报 Network Error、`hq.sinajs.cn` 报 403。main.js 注册 `ipcMain.handle('search-stocks')`/`('fetch-quotes')`/`('fetch-minute')`，renderer 用 `ipcRenderer.invoke`。**新增任何网络请求都照此模式。**
 - **腾讯行情必须用 HTTP 且强制 IPv4**：`fetch-quotes` 用 `http://qt.gtimg.cn/q=`（HTTPS 经本机 Clash 代理报 SSL `WRONG_VERSION_NUMBER`），加 `family: 4`（本机 DNS 对 qt.gtimg.cn 只返回 IPv6）。**分时数据用 `ifzq.gtimg.cn`**（`web.ifzq.gtimg.cn` 的 minute 端点已下线返回 501）。响应 GBK，用 `iconv-lite` 解码。分时分钟量/额为累计值，需取差分。
 - **配置存主进程 userData**：`configFile() = app.getPath('userData')/config.json`。dev 模式在 `%APPDATA%\leek-fund-float`，打包版在 `%APPDATA%\韭菜悬浮窗`（app.name 与 productName 不同导致目录不同）。打包版代码在只读的 `resources/app.asar`，**绝不能写 `__dirname`**。`migrateConfig()` 首次启动自动从 VSCode settings.json / 旧配置导入。
-- **UI 状态**（折叠/置顶/排序/黑白/缩略图高度）存 localStorage。
+- **UI 状态**（折叠/置顶/排序/黑白/缩略图 1–5 倍行高）存 localStorage。
 - K线指标设置（MA 周期、MACD/KDJ 参数、副图数量与类型）存 localStorage；指标在 renderer 中由完整 K 线历史计算后再截取可视窗口。
 - 全局快捷键使用 Electron `globalShortcut` 独占注册；注册失败时提示并在底部显示状态。Windows 不支持通过该 API 强占其他应用、返回占用程序名称或让两个应用同时收到同一组合键。
 - 涨跌配色是**黄=涨 `#f0c828`、蓝=跌 `#6fb1ff`**（不是红绿，用户明确要求），UI 强调色用黄；删除按钮/确认条保留红色（危险语义）。

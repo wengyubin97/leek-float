@@ -8,6 +8,9 @@ const QUOTE_URL = 'https://qt.gtimg.cn/q=';
 const POLL_INTERVAL = 5000; // 行情轮询 5 秒
 const UP_COLOR_CLS = 'up';
 const DOWN_COLOR_CLS = 'down';
+const SPARK_BASE_HEIGHT = 26;
+const SPARK_MIN_HEIGHT = SPARK_BASE_HEIGHT;
+const SPARK_MAX_HEIGHT = SPARK_BASE_HEIGHT * 5;
 
 /** 读 VSCode settings.json（容忍 JSONC 注释） */
 async function loadLeekConfig() {
@@ -85,7 +88,7 @@ function loadUIState() {
       groupSort: !!s.groupSort,
       stockSort: !!s.stockSort,
       bw: !!s.bw,
-      sparkH: s.sparkH || 26,
+      sparkH: Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, Number(s.sparkH) || SPARK_BASE_HEIGHT)),
       chart: {
         maPeriods: Array.isArray(chart.maPeriods) && chart.maPeriods.length === 3 ? chart.maPeriods : [5, 10, 20],
         macd: { fast: (chart.macd && chart.macd.fast) || 12, slow: (chart.macd && chart.macd.slow) || 26, signal: (chart.macd && chart.macd.signal) || 9 },
@@ -96,7 +99,7 @@ function loadUIState() {
   } catch (err) {
     console.error('读取界面状态失败：', err.message);
     return {
-      collapsed: {}, pinned: [], groupSort: false, stockSort: false, sparkH: 26,
+      collapsed: {}, pinned: [], groupSort: false, stockSort: false, sparkH: SPARK_BASE_HEIGHT,
       chart: { maPeriods: [5, 10, 20], macd: { fast: 12, slow: 26, signal: 9 }, kdj: { period: 9, k: 3, d: 3 }, subcharts: ['volume', 'macd'] },
     };
   }
@@ -402,7 +405,7 @@ function updateMinuteMap(rawMap) {
 function drawSpark(canvas, record) {
   const measuredWidth = Math.round(canvas.getBoundingClientRect().width);
   const cw = Math.max(40, measuredWidth || 40);
-  const ch = uiState.sparkH;
+  const ch = Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, uiState.sparkH));
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
@@ -913,21 +916,21 @@ document.getElementById('btnHelp').addEventListener('click', () => {
 const sparkSettingsEl = document.getElementById('sparkSettings');
 function syncSparkSettings() {
   document.getElementById('sparkH').value = uiState.sparkH;
-  document.getElementById('sparkHV').textContent = uiState.sparkH;
+  document.getElementById('sparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
 }
 document.getElementById('btnSparkSet').addEventListener('click', () => {
   sparkSettingsEl.style.display = sparkSettingsEl.style.display === 'block' ? 'none' : 'block';
   syncSparkSettings();
 });
 document.getElementById('sparkH').addEventListener('input', (e) => {
-  uiState.sparkH = parseInt(e.target.value, 10);
-  document.getElementById('sparkHV').textContent = uiState.sparkH;
+  uiState.sparkH = Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, parseInt(e.target.value, 10) || SPARK_BASE_HEIGHT));
+  document.getElementById('sparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
   saveUIState();
   if (lastQuotes) render(lastQuotes);
 });
 
 ipcRenderer.on('set-spark-height', (_event, height) => {
-  uiState.sparkH = Math.max(10, Math.min(60, parseInt(height, 10) || 26));
+  uiState.sparkH = Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, parseInt(height, 10) || SPARK_BASE_HEIGHT));
   syncSparkSettings();
   saveUIState();
   if (lastQuotes) render(lastQuotes);
