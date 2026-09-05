@@ -1,0 +1,476 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>LeekFund Float</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+    body {
+      font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+      font-size: 12px;
+      color: #e8e8e8;
+    }
+    #panel {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: rgba(16, 16, 20, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #titlebar {
+      -webkit-app-region: drag;
+      height: 26px;
+      flex: none;
+      display: flex;
+      align-items: center;
+      padding: 0 6px 0 10px;
+      font-size: 11px;
+      color: #9a9a9a;
+      cursor: move;
+    }
+    #titlebar .btns { margin-left: auto; -webkit-app-region: no-drag; display: flex; }
+    #titlebar button {
+      border: none;
+      background: transparent;
+      color: #9a9a9a;
+      font-size: 12px;
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    #titlebar button:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+    #titlebar button.active { color: #f0c828; font-weight: 700; }
+    #titlebar button.btntext { width: auto; padding: 0 5px; font-size: 11px; }
+    #list { flex: 1; overflow-y: auto; padding: 0 8px 8px 8px; }
+    #chartView { flex: 1; display: none; flex-direction: column; min-height: 0; }
+    #chartView.show { display: flex; }
+    #chartHeader {
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      font-size: 12px;
+      color: #e8e8e8;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #chartHeader button {
+      border: none;
+      background: transparent;
+      color: #9a9a9a;
+      font-size: 12px;
+      height: 22px;
+      padding: 0 6px;
+      cursor: pointer;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    #chartHeader button:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+    #chartTitle { color: #e8e8e8; white-space: nowrap; }
+    #chartLegend { margin-left: auto; font-size: 11px; color: #b8b8b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #chartSettingsToggle { font-size: 14px !important; }
+    #chartSettings {
+      display: none;
+      flex: none;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(16,16,20,0.96);
+      color: #b8b8b8;
+      font-size: 11px;
+    }
+    #chartSettings.show { display: block; }
+    .chart-settings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px 8px;
+      align-items: center;
+    }
+    .chart-settings-grid label { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .chart-settings-grid .setting-title { color: #e8e8e8; font-weight: 700; grid-column: 1 / -1; margin-top: 2px; }
+    .chart-settings-grid input, .chart-settings-grid select {
+      width: 52px;
+      min-width: 0;
+      background: #14141a;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 3px;
+      color: #e8e8e8;
+      font-size: 11px;
+      padding: 2px 3px;
+      outline: none;
+    }
+    .chart-settings-grid select { width: 78px; }
+    .chart-settings-grid input:focus, .chart-settings-grid select:focus { border-color: #f0c828; }
+    .chart-settings-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+    .chart-settings-actions button {
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      color: #b8b8b8;
+      border-radius: 3px;
+      padding: 2px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .chart-settings-actions button:hover { color: #fff; background: rgba(255,255,255,0.12); }
+    .chart-tabs { display: flex; flex: none; }
+    .chart-tabs .chart-tab.active { color: #f0c828; font-weight: 700; }
+    #chartPeriod {
+      background: #14141a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      color: #b8b8b8;
+      font-size: 11px;
+      padding: 1px 2px;
+      outline: none;
+    }
+    #chartPeriod option {
+      background: #14141a;
+      color: #b8b8b8;
+    }
+    #chartCanvas { flex: 1; width: 100%; min-height: 0; display: block; }
+    #chartInfo {
+      flex: none;
+      height: 16px;
+      font-size: 10px;
+      color: #9a9a9a;
+      line-height: 16px;
+      padding: 0 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #addPanel { flex: none; display: none; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    #addPanel input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      color: #e8e8e8;
+      font-size: 12px;
+      padding: 4px 6px;
+      outline: none;
+    }
+    #addPanel input:focus { border-color: #f0c828; }
+    #addResults { max-height: 180px; overflow-y: auto; margin-top: 2px; }
+    .add-result {
+      display: flex;
+      align-items: center;
+      padding: 3px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .add-result:hover { background: rgba(255, 255, 255, 0.1); }
+    .add-result .rcode { color: #9a9a9a; margin-left: auto; }
+    .add-hint { font-size: 11px; color: #9a9a9a; padding: 3px 6px; }
+    #confirmBar {
+      flex: none;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #e8e8e8;
+    }
+    #confirmBar button {
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    #confirmYes { background: rgba(229, 57, 53, 0.75); color: #fff; }
+    #confirmNo { background: rgba(255, 255, 255, 0.12); color: #e8e8e8; }
+    #list::-webkit-scrollbar { width: 4px; }
+    #list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+    .group-row {
+      padding: 3px 4px;
+      font-size: 11px;
+      color: #b8b8b8;
+      display: flex;
+      align-items: center;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+    .group-row.group-header { cursor: pointer; border-radius: 4px; }
+    .group-row.group-header:hover { background: rgba(255, 255, 255, 0.06); }
+    .group-row .gmarker { flex: none; width: 14px; color: #888; font-size: 10px; }
+    .group-row .gname { font-weight: 600; }
+    .group-row .gavg { margin-left: auto; }
+    .group-row .del { opacity: 0; flex: none; width: 14px; text-align: center; color: #ff6b6b; font-size: 12px; cursor: pointer; }
+    .group-row:hover .del { opacity: 1; }
+    .group-row .pin { opacity: 0; flex: none; width: 16px; text-align: center; color: #888; font-size: 11px; cursor: pointer; }
+    .group-row:hover .pin { opacity: 1; }
+    .group-row .pin.pinned { opacity: 1; color: #f0c828; }
+    .group-row .rename { opacity: 0; flex: none; width: 16px; text-align: center; color: #888; font-size: 11px; cursor: pointer; }
+    .group-row:hover .rename { opacity: 1; }
+    .add-stock-row {
+      padding: 2px 4px 2px 18px;
+      font-size: 11px;
+      color: #f0c828;
+      cursor: pointer;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .add-stock-row:hover { background: rgba(255, 255, 255, 0.06); }
+    .stock-row {
+      display: flex;
+      align-items: center;
+      padding: 2px 4px;
+      border-radius: 3px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .stock-row:hover { background: rgba(255, 255, 255, 0.06); }
+    .stock-row .sname { flex: none; max-width: 52px; overflow: hidden; text-overflow: ellipsis; }
+    .stock-row .spark { flex: none; width: 80px; height: 26px; margin: 0 2px; }
+    .stock-row .sprice { flex: none; width: 46px; text-align: right; font-variant-numeric: tabular-nums; }
+    .stock-row .spct { flex: none; width: 46px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .stock-row .del { opacity: 0; flex: none; width: 14px; text-align: center; color: #ff6b6b; font-size: 12px; cursor: pointer; }
+    .stock-row:hover .del { opacity: 1; }
+    .stock-row .alertbtn { opacity: 0; flex: none; width: 16px; text-align: center; color: #888; font-size: 11px; cursor: pointer; }
+    .stock-row:hover .alertbtn { opacity: 1; }
+    .stock-row.alerted { background: rgba(240, 200, 40, 0.12); border-radius: 4px; }
+    .stock-row.alerted .alertbtn { opacity: 1; color: #f0c828; }
+    #alertPanel {
+      flex: 1;
+      display: none;
+      overflow-y: auto;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #c8c8c8;
+      line-height: 1.7;
+    }
+    #alertPanel .alert-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    #alertPanel .alert-head span { color: #f0c828; font-weight: 700; }
+    #alertPanel .alert-head button { border: none; background: transparent; color: #ff6b6b; cursor: pointer; font-size: 12px; }
+    #alertPanel label { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    #alertPanel select, #alertPanel input {
+      background: #14141a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      color: #e8e8e8;
+      font-size: 11px;
+      padding: 2px 4px;
+      outline: none;
+    }
+    #alertPanel select { flex: 1; }
+    #alertPanel input { width: 60px; }
+    #alertPanel .alert-btns { display: flex; gap: 6px; margin: 4px 0; }
+    #alertPanel .alert-btns button {
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    #alertSave { background: rgba(240, 200, 40, 0.25); color: #f0c828; }
+    #alertDel { background: rgba(255, 107, 107, 0.18); color: #ff6b6b; }
+    #alertList .alert-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 4px;
+      border-radius: 3px;
+      margin-top: 2px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    #alertList .alert-item .del { color: #ff6b6b; cursor: pointer; padding: 0 4px; }
+    .up { color: #f0c828; }
+    .down { color: #6fb1ff; }
+    .flat { color: #c8c8c8; }
+    .risk { color: #f0c828; font-weight: 600; }
+    #hotkeyStatus { max-width: 118px; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #hotkeyStatus.ok { color: #777; }
+    #hotkeyStatus.error { color: #ff6b6b; }
+    #footer {
+      flex: none;
+      height: 18px;
+      font-size: 10px;
+      color: #6a6a6a;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+    }
+    #footer .hint { margin-left: auto; }
+    #btnSparkSet {
+      border: none;
+      background: transparent;
+      color: #9a9a9a;
+      font-size: 12px;
+      width: 20px;
+      height: 18px;
+      cursor: pointer;
+      line-height: 1;
+      margin-left: 6px;
+      border-radius: 3px;
+    }
+    #btnSparkSet:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+    #btnHelp {
+      border: none;
+      background: transparent;
+      color: #9a9a9a;
+      font-size: 13px;
+      font-weight: 700;
+      width: 20px;
+      height: 18px;
+      cursor: pointer;
+      line-height: 1;
+      margin-left: 6px;
+      border-radius: 3px;
+    }
+    #btnHelp:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+    #opacitySlider { width: 70px; accent-color: #f0c828; margin-left: 6px; }
+    body.bw { filter: grayscale(1); }
+    #helpPanel {
+      flex: 1;
+      display: none;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-size: 11px;
+      color: #c8c8c8;
+      line-height: 1.7;
+    }
+    #helpPanel h4 { color: #f0c828; margin: 0 0 6px 0; font-size: 12px; }
+    #helpPanel p { margin: 0 0 8px 0; }
+    #helpPanel b { color: #e8e8e8; }
+    #sparkSettings {
+      flex: none;
+      display: none;
+      padding: 4px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      color: #b8b8b8;
+      gap: 4px;
+    }
+    #sparkSettings label { display: flex; align-items: center; gap: 4px; }
+    #sparkSettings input[type="range"] { width: 90px; accent-color: #f0c828; }
+    #sparkSettings span { width: 26px; text-align: right; color: #e8e8e8; }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <div id="titlebar">
+      <span>🥬 韭菜悬浮窗</span>
+      <span class="btns">
+        <button id="btnAddStock" class="btntext" title="添加股票">+股</button>
+        <button id="btnAddGroup" class="btntext" title="添加分组">+组</button>
+        <button id="btnBw" class="btntext" title="黑白/彩色切换">黑白</button>
+        <button id="btnGroupSort" title="分组排序：默认/平均涨跌幅降序">组</button>
+        <button id="btnStockSort" title="个股排序：默认/涨跌幅降序">股</button>
+        <button id="btnMin" title="隐藏到托盘">—</button>
+        <button id="btnClose" title="退出">✕</button>
+      </span>
+    </div>
+    <div id="chartView">
+      <div id="chartHeader">
+        <button id="chartBack" title="返回列表">←</button>
+        <span id="chartTitle">--</span>
+        <span id="chartLegend"></span>
+        <span class="chart-tabs">
+          <select id="chartPeriod">
+            <option value="minute">分时</option>
+            <option value="m1">1分钟</option>
+            <option value="m5">5分钟</option>
+            <option value="m15">15分钟</option>
+            <option value="m60">60分钟</option>
+            <option value="m120">120分钟</option>
+            <option value="day">日K</option>
+            <option value="week">周K</option>
+            <option value="month">月K</option>
+          </select>
+        </span>
+        <button id="chartSettingsToggle" title="K线指标与副图设置">⚙</button>
+        <button id="chartAlert" title="按当前图表设置预警">🔔</button>
+      </div>
+      <div id="chartSettings">
+        <div class="chart-settings-grid">
+          <span class="setting-title">均线参数</span>
+          <label>MA1 <input id="chartMa1" type="number" min="2" max="250" /></label>
+          <label>MA2 <input id="chartMa2" type="number" min="2" max="250" /></label>
+          <label>MA3 <input id="chartMa3" type="number" min="2" max="250" /></label>
+          <span class="setting-title">MACD 参数</span>
+          <label>快线 <input id="chartMacdFast" type="number" min="2" max="120" /></label>
+          <label>慢线 <input id="chartMacdSlow" type="number" min="3" max="250" /></label>
+          <label>信号 <input id="chartMacdSignal" type="number" min="2" max="120" /></label>
+          <span class="setting-title">KDJ 参数</span>
+          <label>周期 <input id="chartKdjPeriod" type="number" min="2" max="120" /></label>
+          <label>K 平滑 <input id="chartKdjK" type="number" min="1" max="30" /></label>
+          <label>D 平滑 <input id="chartKdjD" type="number" min="1" max="30" /></label>
+          <span class="setting-title">副图（0–3 个）</span>
+          <label>数量 <input id="chartSubchartCount" type="number" min="0" max="3" /></label>
+          <label>副图1 <select id="chartSubchart1"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
+          <label>副图2 <select id="chartSubchart2"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
+          <label>副图3 <select id="chartSubchart3"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
+        </div>
+        <div class="chart-settings-actions"><button id="chartSettingsReset">恢复默认</button><button id="chartSettingsApply">应用</button></div>
+      </div>
+      <canvas id="chartCanvas"></canvas>
+      <div id="chartInfo"></div>
+    </div>
+    <div id="addPanel">
+      <input id="addInput" type="text" placeholder="输入股票名称/代码搜索" autocomplete="off" spellcheck="false" />
+      <div id="addResults"></div>
+    </div>
+    <div id="sparkSettings">
+      <label>宽 <input type="range" id="sparkW" min="40" max="200" value="80" /><span id="sparkWV">80</span></label>
+      <label>高 <input type="range" id="sparkH" min="10" max="60" value="26" /><span id="sparkHV">26</span></label>
+      <label>缩放 <input type="range" id="sparkZoom" min="1" max="5" step="0.5" value="1" /><span id="sparkZV">1.0</span></label>
+    </div>
+    <div id="alertPanel">
+      <div class="alert-head"><span id="alertStockName">--</span><button id="alertClose" title="关闭">✕</button></div>
+      <label>条件
+        <select id="alertType">
+          <option value="cross_ma_up">上穿均线</option>
+          <option value="cross_ma_down">下穿均线</option>
+          <option value="ma_cross_up">均线金叉</option>
+          <option value="ma_cross_down">均线死叉</option>
+          <option value="cross_value_up">上穿数值</option>
+          <option value="cross_value_down">下穿数值</option>
+        </select>
+      </label>
+      <label id="alertMaRow">均线周期 <input id="alertMaN" type="number" min="2" max="120" value="5" /></label>
+      <label id="alertMaMRow">第二周期 <input id="alertMaM" type="number" min="2" max="120" value="10" /></label>
+      <label id="alertValueRow">阈值 <input id="alertValue" type="number" step="0.001" placeholder="价格" /></label>
+      <div class="alert-btns"><button id="alertSave">保存预警</button><button id="alertDel">删除该条件</button></div>
+      <div id="alertList"></div>
+    </div>
+    <div id="helpPanel">
+      <h4>使用指南</h4>
+      <p><b>添加 / 删除</b>：标题栏「+股」「+组」添加股票（搜索）与分组；行悬停显示 × 删除——分组内的 × 只从该组移除，「全部」里的 × 才是真正删除。</p>
+      <p><b>分组管理</b>：悬停分组标题行——📌 置顶、✏️ 重命名；点击标题折叠/展开（状态自动保存）。</p>
+      <p><b>排序</b>：标题栏「组」按平均涨跌幅降序、「股」按涨跌幅降序，再点恢复默认。</p>
+      <p><b>分时缩略图</b>：每行内嵌当日分时图（0轴上方黄、下方蓝），每 5 秒刷新；底部 ⚙ 可调宽/高/缩放（缩放=放大最近区间，Y轴自动适配）。</p>
+      <p><b>图表与预警</b>：点击任意个股打开分时图/K线；顶部下拉可切换 1/5/15/60/120 分钟、日/周/月 K。K线模式点击⚙可设置 MA、MACD、KDJ 参数，以及 0–3 个副图和每个副图的内容。滚轮缩放时间轴、按住拖动平移、鼠标悬停显示十字坐标与数据；点击右上角🔔可直接按当前图表价位设置预警。← 或 Esc 返回列表。</p>
+      <p><b>自动分组</b>：应用会自动创建「warning」分组；预警条件成立时个股自动加入，条件失效且没有其它相关预警成立时自动移出。</p>
+      <p><b>显示</b>：底部滑杆调窗口透明度；标题栏「黑白」切换灰度模式。</p>
+      <p><b>托盘 / 快捷键</b>：Alt+Q 显示/隐藏悬浮窗；若当前组合键被占用，应用会提示并在底部显示状态；系统托盘左键切换、右键菜单退出；窗口内右键菜单可刷新。</p>
+      <p><b>配置</b>：股票与分组数据保存在本地 userData 配置，不依赖 VSCode，随 exe 直接可用。</p>
+    </div>
+    <div id="list"></div>
+    <div id="confirmBar">
+      <span id="confirmText"></span>
+      <button id="confirmYes">删除</button>
+      <button id="confirmNo">取消</button>
+    </div>
+    <div id="footer">
+      <span id="updated">--</span>
+      <span id="hotkeyStatus" class="ok" title="全局快捷键状态"></span>
+      <span class="hint">右键菜单</span>
+      <button id="btnHelp" title="使用帮助">?</button>
+      <button id="btnSparkSet" title="分时缩略图设置">⚙</button>
+      <input type="range" id="opacitySlider" min="15" max="100" value="92" title="窗口透明度" />
+    </div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
