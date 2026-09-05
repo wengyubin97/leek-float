@@ -85,9 +85,7 @@ function loadUIState() {
       groupSort: !!s.groupSort,
       stockSort: !!s.stockSort,
       bw: !!s.bw,
-      sparkW: s.sparkW || 80,
       sparkH: s.sparkH || 26,
-      sparkZoom: s.sparkZoom || 1,
       chart: {
         maPeriods: Array.isArray(chart.maPeriods) && chart.maPeriods.length === 3 ? chart.maPeriods : [5, 10, 20],
         macd: { fast: (chart.macd && chart.macd.fast) || 12, slow: (chart.macd && chart.macd.slow) || 26, signal: (chart.macd && chart.macd.signal) || 9 },
@@ -98,7 +96,7 @@ function loadUIState() {
   } catch (err) {
     console.error('读取界面状态失败：', err.message);
     return {
-      collapsed: {}, pinned: [], groupSort: false, stockSort: false, sparkW: 80, sparkH: 26, sparkZoom: 1,
+      collapsed: {}, pinned: [], groupSort: false, stockSort: false, sparkH: 26,
       chart: { maPeriods: [5, 10, 20], macd: { fast: 12, slow: 26, signal: 9 }, kdj: { period: 9, k: 3, d: 3 }, subcharts: ['volume', 'macd'] },
     };
   }
@@ -228,9 +226,6 @@ function render(quotes) {
   listEl.innerHTML = html;
 
   // 绘制分时缩略图（从 minuteMap 取数，无数据则留空）
-  listEl.querySelectorAll('.stock-row').forEach((row) => {
-    row.style.setProperty('--spark-min-width', `${uiState.sparkW}px`);
-  });
   listEl.querySelectorAll('canvas.spark').forEach((cv) => {
     drawSpark(cv, minuteMap.get(cv.dataset.code));
   });
@@ -403,12 +398,11 @@ function updateMinuteMap(rawMap) {
   }
 }
 
-/** 绘制单只股票的分时缩略图（缩放=水平窗口；高度固定；Y轴适配可见窗口[min,max]；0轴上黄下蓝） */
+/** 绘制单只股票的分时缩略图（完整分时数据；高度可调；Y轴适配可见窗口[min,max]；0轴上黄下蓝） */
 function drawSpark(canvas, record) {
   const measuredWidth = Math.round(canvas.getBoundingClientRect().width);
-  const cw = Math.max(40, measuredWidth || uiState.sparkW);
+  const cw = Math.max(40, measuredWidth || 40);
   const ch = uiState.sparkH;
-  const zoom = uiState.sparkZoom;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
@@ -419,9 +413,7 @@ function drawSpark(canvas, record) {
   if (!record || !record.points || record.points.length < 2) return;
 
   const { prevClose, points } = record;
-  // 缩放：只显示最右边区间（如 100 点放大 10x → 显示 [90,100]），铺满整个宽度
-  const windowN = Math.max(10, Math.round(points.length / zoom));
-  const pts = points.slice(points.length - windowN);
+  const pts = points;
   const padL = 2;
   const padR = 2;
   const padT = 2;
@@ -917,27 +909,28 @@ document.getElementById('btnHelp').addEventListener('click', () => {
   if (!show && lastQuotes) render(lastQuotes);
 });
 
-// ---- 分时缩略图设置面板（宽/高/缩放；缩放只改宽度，Y轴适配可见窗口） ----
+// ---- 分时缩略图设置面板（仅高度；宽度自动占用剩余空间） ----
 const sparkSettingsEl = document.getElementById('sparkSettings');
 function syncSparkSettings() {
-  document.getElementById('sparkW').value = uiState.sparkW;
   document.getElementById('sparkH').value = uiState.sparkH;
-  document.getElementById('sparkZoom').value = uiState.sparkZoom;
-  document.getElementById('sparkWV').textContent = uiState.sparkW;
   document.getElementById('sparkHV').textContent = uiState.sparkH;
-  document.getElementById('sparkZV').textContent = uiState.sparkZoom.toFixed(1);
 }
 document.getElementById('btnSparkSet').addEventListener('click', () => {
   sparkSettingsEl.style.display = sparkSettingsEl.style.display === 'block' ? 'none' : 'block';
   syncSparkSettings();
 });
-[['sparkW', 'sparkWV'], ['sparkH', 'sparkHV'], ['sparkZoom', 'sparkZV']].forEach(([key, labelId]) => {
-  document.getElementById(key).addEventListener('input', (e) => {
-    uiState[key] = key === 'sparkZoom' ? Number(e.target.value) : parseInt(e.target.value, 10);
-    document.getElementById(labelId).textContent = key === 'sparkZoom' ? uiState[key].toFixed(1) : uiState[key];
-    saveUIState();
-    if (lastQuotes) render(lastQuotes);
-  });
+document.getElementById('sparkH').addEventListener('input', (e) => {
+  uiState.sparkH = parseInt(e.target.value, 10);
+  document.getElementById('sparkHV').textContent = uiState.sparkH;
+  saveUIState();
+  if (lastQuotes) render(lastQuotes);
+});
+
+ipcRenderer.on('set-spark-height', (_event, height) => {
+  uiState.sparkH = Math.max(10, Math.min(60, parseInt(height, 10) || 26));
+  syncSparkSettings();
+  saveUIState();
+  if (lastQuotes) render(lastQuotes);
 });
 
 // ---- 股价预警配置面板（按个股） ----

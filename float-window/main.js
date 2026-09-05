@@ -39,6 +39,7 @@ function createWindow() {
       { label: '导入配置…', click: () => importConfig() },
       { type: 'separator' },
       hotkeySubmenu(),
+      sparkHeightSubmenu(),
       { type: 'separator' },
       { label: '开发者工具', click: () => win.webContents.toggleDevTools() },
       { type: 'separator' },
@@ -72,6 +73,7 @@ function createTray() {
           { label: '显示/隐藏悬浮窗', click: toggleWindow },
           { type: 'separator' },
           hotkeySubmenu(),
+          sparkHeightSubmenu(),
           { type: 'separator' },
           { label: '退出', click: () => app.quit() },
         ])
@@ -234,6 +236,18 @@ function hotkeySubmenu() {
       { label: hotkeyStatusLabel(), enabled: false },
       { label: '重新注册快捷键', click: () => applyHotkey() },
     ],
+  };
+}
+
+function sparkHeightSubmenu() {
+  return {
+    label: '缩略图高度',
+    submenu: [10, 18, 26, 34, 44, 54, 60].map((height) => ({
+      label: `${height}px`,
+      click: () => {
+        if (win && !win.isDestroyed()) win.webContents.send('set-spark-height', height);
+      },
+    })),
   };
 }
 
