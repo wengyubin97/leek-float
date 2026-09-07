@@ -168,6 +168,17 @@ function priceDec(rawPrice) {
   return 2;
 }
 
+function groupMoveButtons(name) {
+  if (uiState.groupSort) return '';
+  const isPinned = uiState.pinned.includes(name);
+  const sequence = isPinned ? uiState.pinned : cfg.groups.filter((g) => !uiState.pinned.includes(g));
+  const index = sequence.indexOf(name);
+  if (index < 0) return '';
+  const button = (direction, label, disabled) =>
+    `<span class="group-move${disabled ? ' disabled' : ''}" data-move="${direction}" title="${disabled ? '已到边界' : `${label}移动分组`}">${label}</span>`;
+  return `${button('up', '▲', index === 0)}${button('down', '▼', index === sequence.length - 1)}`;
+}
+
 function render(quotes) {
   const listEl = document.getElementById('list');
 
@@ -197,7 +208,7 @@ function render(quotes) {
   groups.forEach((g, i) => {
     const avg = g.members.reduce((s, m) => s + m.percent, 0) / g.members.length;
     const collapsed = !!uiState.collapsed[g.name];
-    html += `<div class="group-row group-header" data-idx="${i}" data-name="${g.name}"><span class="gmarker">${collapsed ? '▸' : '▾'}</span><span class="gname">${g.name}(${g.members.length})</span><span class="gavg ${clsOf(avg)}">${sign(avg)}${avg.toFixed(2)}%</span><span class="pin ${uiState.pinned.includes(g.name) ? 'pinned' : ''}" title="置顶/取消置顶">📌</span><span class="rename" title="重命名分组">✏️</span><span class="del" title="删除分组">×</span></div>`;
+    html += `<div class="group-row group-header" data-idx="${i}" data-name="${g.name}"><span class="gmarker">${collapsed ? '▸' : '▾'}</span><span class="gname">${g.name}(${g.members.length})</span><span class="gavg ${clsOf(avg)}">${sign(avg)}${avg.toFixed(2)}%</span>${groupMoveButtons(g.name)}<span class="pin ${uiState.pinned.includes(g.name) ? 'pinned' : ''}" title="置顶/取消置顶">📌</span><span class="rename" title="重命名分组">✏️</span><span class="del" title="删除分组">×</span></div>`;
     if (!collapsed) {
       html += g.members
         .map(
@@ -516,12 +527,50 @@ async function tick() {
 document.getElementById('btnClose').addEventListener('click', () => ipcRenderer.send('win-close'));
 document.getElementById('btnMin').addEventListener('click', () => ipcRenderer.send('win-hide'));
 
-// 列表点击：组内「添加股票到此分组」/ 置顶 / × 删除（确认条）/ 分组标题折叠
+function moveGroup(name, direction) {
+  if (uiState.groupSort) return;
+  const isPinned = uiState.pinned.includes(name);
+  if (isPinned) {
+    const index = uiState.pinned.indexOf(name);
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= uiState.pinned.length) return;
+    [uiState.pinned[index], uiState.pinned[target]] = [uiState.pinned[target], uiState.pinned[index]];
+    saveUIState();
+    if (lastQuotes) render(lastQuotes);
+    return;
+  }
+  writeLeekConfig((obj) => {
+    const groups = obj.groups || [];
+    const arrs = obj.groupStocks || [];
+    const movable = groups
+      .map((group, index) => ({ group, index }))
+      .filter(({ group }) => !uiState.pinned.includes(group));
+    const position = movable.findIndex(({ group }) => group === name);
+    const targetPosition = direction === 'up' ? position - 1 : position + 1;
+    if (position < 0 || targetPosition < 0 || targetPosition >= movable.length) return;
+    const a = movable[position].index;
+    const b = movable[targetPosition].index;
+    [groups[a], groups[b]] = [groups[b], groups[a]];
+    [arrs[a], arrs[b]] = [arrs[b], arrs[a]];
+    obj.groups = groups;
+    obj.groupStocks = arrs;
+  }).then(() => {
+    if (lastQuotes) render(lastQuotes);
+  });
+}
+
+// 列表点击：组内「添加股票到此分组」/ 置顶 / 顺序 / × 删除（确认条）/ 分组标题折叠
 document.getElementById('list').addEventListener('click', (e) => {
   const addRow = e.target.closest('.add-stock-row');
   if (addRow) {
     const name = addRow.dataset.name;
     if (name) openAddPanel('addToGroup', `搜索添加到「${name}」`, name);
+    return;
+  }
+  const moveBtn = e.target.closest('.group-move');
+  if (moveBtn) {
+    const groupRow = moveBtn.closest('.group-header');
+    if (groupRow && groupRow.dataset.name) moveGroup(groupRow.dataset.name, moveBtn.dataset.move);
     return;
   }
   const pinBtn = e.target.closest('.pin');
