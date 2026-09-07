@@ -86,6 +86,30 @@
       font-size: 11px;
     }
     #chartSettings.show { display: block; }
+    #settingsPanel {
+      flex: 1;
+      display: none;
+      overflow-y: auto;
+      padding: 6px 8px;
+      background: rgba(16,16,20,0.96);
+      color: #b8b8b8;
+      font-size: 11px;
+      line-height: 1.7;
+    }
+    #settingsPanel.show { display: block; }
+    #settingsPanel .settings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    #settingsPanel .settings-head strong { color: #f0c828; font-size: 12px; }
+    #settingsPanel .settings-head button { border: none; background: transparent; color: #ff6b6b; cursor: pointer; font-size: 12px; }
+    .settings-section { border-top: 1px solid rgba(255,255,255,0.08); padding: 4px 0; }
+    .settings-section:first-of-type { border-top: none; }
+    .settings-section-title { color: #e8e8e8; font-weight: 700; margin-bottom: 2px; }
+    .settings-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+    .settings-row > label { display: flex; align-items: center; gap: 4px; }
+    .settings-row input[type="range"] { width: 108px; accent-color: #f0c828; }
+    .settings-row input[type="color"] { width: 28px; height: 20px; padding: 0; border: 1px solid rgba(255,255,255,0.18); background: transparent; cursor: pointer; }
+    .settings-row select { background: #14141a; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; color: #e8e8e8; font-size: 11px; padding: 2px 4px; }
+    .settings-row .setting-value { color: #e8e8e8; min-width: 42px; }
+    #settingsChartSettings { display: block; padding: 0; background: transparent; }
     .chart-settings-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -396,28 +420,6 @@
         <button id="chartSettingsToggle" title="K线指标与副图设置">⚙</button>
         <button id="chartAlert" title="按当前图表设置预警">🔔</button>
       </div>
-      <div id="chartSettings">
-        <div class="chart-settings-grid">
-          <span class="setting-title">均线参数</span>
-          <label>MA1 <input id="chartMa1" type="number" min="2" max="250" /></label>
-          <label>MA2 <input id="chartMa2" type="number" min="2" max="250" /></label>
-          <label>MA3 <input id="chartMa3" type="number" min="2" max="250" /></label>
-          <span class="setting-title">MACD 参数</span>
-          <label>快线 <input id="chartMacdFast" type="number" min="2" max="120" /></label>
-          <label>慢线 <input id="chartMacdSlow" type="number" min="3" max="250" /></label>
-          <label>信号 <input id="chartMacdSignal" type="number" min="2" max="120" /></label>
-          <span class="setting-title">KDJ 参数</span>
-          <label>周期 <input id="chartKdjPeriod" type="number" min="2" max="120" /></label>
-          <label>K 平滑 <input id="chartKdjK" type="number" min="1" max="30" /></label>
-          <label>D 平滑 <input id="chartKdjD" type="number" min="1" max="30" /></label>
-          <span class="setting-title">副图（0–3 个）</span>
-          <label>数量 <input id="chartSubchartCount" type="number" min="0" max="3" /></label>
-          <label>副图1 <select id="chartSubchart1"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
-          <label>副图2 <select id="chartSubchart2"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
-          <label>副图3 <select id="chartSubchart3"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
-        </div>
-        <div class="chart-settings-actions"><button id="chartSettingsReset">恢复默认</button><button id="chartSettingsApply">应用</button></div>
-      </div>
       <canvas id="chartCanvas"></canvas>
       <div id="chartInfo"></div>
     </div>
@@ -425,10 +427,44 @@
       <input id="addInput" type="text" placeholder="输入股票名称/代码搜索" autocomplete="off" spellcheck="false" />
       <div id="addResults"></div>
     </div>
-    <div id="sparkSettings">
-      <label>行高 <input type="range" id="sparkH" min="26" max="130" step="1" value="26" /><span id="sparkHV">1.0×</span></label>
-      <label>涨色 <input type="color" id="upColor" value="#f0c828" /><span id="upColorV">#f0c828</span></label>
-      <label>跌色 <input type="color" id="downColor" value="#6fb1ff" /><span id="downColorV">#6fb1ff</span></label>
+    <div id="settingsPanel">
+      <div class="settings-head"><strong>统一设置</strong><button id="settingsClose" title="关闭">✕</button></div>
+      <div class="settings-section">
+        <div class="settings-section-title">窗口与列表</div>
+        <div class="settings-row"><label>透明度 <input type="range" id="settingsOpacity" min="15" max="100" value="92" /><span class="setting-value" id="settingsOpacityV">92%</span></label></div>
+        <div class="settings-row"><label><input type="checkbox" id="settingsBw" /> 黑白模式</label><label><input type="checkbox" id="settingsGroupSort" /> 组排序</label><label><input type="checkbox" id="settingsStockSort" /> 股排序</label></div>
+        <div class="settings-row"><label>缩略图行高 <input type="range" id="settingsSparkH" min="26" max="130" step="1" value="26" /><span class="setting-value" id="settingsSparkHV">1.0×</span></label></div>
+        <div class="settings-row"><label>涨色 <input type="color" id="settingsUpColor" value="#f0c828" /><span class="setting-value" id="settingsUpColorV">#f0c828</span></label><label>跌色 <input type="color" id="settingsDownColor" value="#6fb1ff" /><span class="setting-value" id="settingsDownColorV">#6fb1ff</span></label></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">全局快捷键</div>
+        <div class="settings-row"><label>显示/隐藏 <select id="settingsHotkey"><option value="alt+q">Alt+Q</option><option value="ctrl+q">Ctrl+Q</option></select></label><button id="settingsHotkeyApply">应用</button><span id="settingsHotkeyStatus"></span></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">K线指标与副图</div>
+        <div id="chartSettings">
+          <div class="chart-settings-grid">
+            <span class="setting-title">均线参数</span>
+            <label>MA1 <input id="chartMa1" type="number" min="2" max="250" /></label>
+            <label>MA2 <input id="chartMa2" type="number" min="2" max="250" /></label>
+            <label>MA3 <input id="chartMa3" type="number" min="2" max="250" /></label>
+            <span class="setting-title">MACD 参数</span>
+            <label>快线 <input id="chartMacdFast" type="number" min="2" max="120" /></label>
+            <label>慢线 <input id="chartMacdSlow" type="number" min="3" max="250" /></label>
+            <label>信号 <input id="chartMacdSignal" type="number" min="2" max="120" /></label>
+            <span class="setting-title">KDJ 参数</span>
+            <label>周期 <input id="chartKdjPeriod" type="number" min="2" max="120" /></label>
+            <label>K 平滑 <input id="chartKdjK" type="number" min="1" max="30" /></label>
+            <label>D 平滑 <input id="chartKdjD" type="number" min="1" max="30" /></label>
+            <span class="setting-title">副图（0–3 个）</span>
+            <label>数量 <input id="chartSubchartCount" type="number" min="0" max="3" /></label>
+            <label>副图1 <select id="chartSubchart1"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
+            <label>副图2 <select id="chartSubchart2"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
+            <label>副图3 <select id="chartSubchart3"><option value="volume">成交量</option><option value="macd">MACD</option><option value="kdj">KDJ</option></select></label>
+          </div>
+          <div class="chart-settings-actions"><button id="chartSettingsReset">恢复默认</button><button id="chartSettingsApply">应用</button></div>
+        </div>
+      </div>
     </div>
     <div id="alertPanel">
       <div class="alert-head"><span id="alertStockName">--</span><button id="alertClose" title="关闭">✕</button></div>
@@ -453,7 +489,8 @@
       <p><b>添加 / 删除</b>：标题栏「+股」「+组」添加股票（搜索）与分组；行悬停显示 × 删除——分组内的 × 只从该组移除，「全部」里的 × 才是真正删除。</p>
       <p><b>分组管理</b>：悬停分组标题行——📌 置顶、✏️ 重命名、▲/▼ 调整顺序；点击标题折叠/展开（状态自动保存）。组排序开启时不能手动调整顺序。</p>
       <p><b>排序</b>：标题栏「组」按平均涨跌幅降序、「股」按涨跌幅降序，再点恢复默认。</p>
-      <p><b>分时缩略图</b>：每行内嵌当日分时图（0轴上方黄、下方蓝），每 5 秒刷新；底部 ⚙ 可调行高（1–5 倍），也可以在窗口右键菜单中直接选择；窗口变宽时缩略图自动占用剩余空间，Y轴自动适配。</p>
+      <p><b>统一设置</b>：窗口右键选择「统一设置」，可集中设置透明度、黑白模式、排序、缩略图行高、涨跌颜色、全局快捷键和K线指标；底部⚙也可打开。</p>
+      <p><b>分时缩略图</b>：每行内嵌当日分时图（0轴上方黄、下方蓝），每 5 秒刷新；窗口变宽时缩略图自动占用剩余空间，Y轴自动适配。</p>
       <p><b>图表与预警</b>：点击任意个股打开分时图/K线；顶部下拉可切换 1/5/15/60/120 分钟、日/周/月 K。K线模式点击⚙可设置 MA、MACD、KDJ 参数，以及 0–3 个副图和每个副图的内容。滚轮缩放时间轴、按住拖动平移、鼠标悬停显示十字坐标与数据；点击右上角🔔可直接按当前图表价位设置预警。← 或 Esc 返回列表。</p>
       <p><b>自动分组</b>：应用会自动创建「warning」分组；预警条件成立时个股自动加入，条件失效且没有其它相关预警成立时自动移出。</p>
       <p><b>显示</b>：底部滑杆调窗口透明度；标题栏「黑白」切换灰度模式；底部⚙可自定义涨色和跌色。</p>
@@ -471,7 +508,7 @@
       <span id="hotkeyStatus" class="ok" title="全局快捷键状态"></span>
       <span class="hint">右键菜单</span>
       <button id="btnHelp" title="使用帮助">?</button>
-      <button id="btnSparkSet" title="分时缩略图设置">⚙</button>
+      <button id="btnSparkSet" title="统一设置">⚙</button>
       <input type="range" id="opacitySlider" min="15" max="100" value="92" title="窗口透明度" />
     </div>
   </div>

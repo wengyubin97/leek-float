@@ -33,6 +33,8 @@ function createWindow() {
   // 右键菜单（窗口级：刷新/导入导出/开发者工具/退出）
   win.webContents.on('context-menu', () => {
     Menu.buildFromTemplate([
+      { label: '统一设置…', click: () => win.webContents.send('open-settings') },
+      { type: 'separator' },
       { label: '刷新数据', click: () => win.webContents.reload() },
       { type: 'separator' },
       { label: '导出配置…', click: () => exportConfig() },
@@ -71,6 +73,7 @@ function createTray() {
       tray.popUpContextMenu(
         Menu.buildFromTemplate([
           { label: '显示/隐藏悬浮窗', click: toggleWindow },
+          { label: '统一设置…', click: () => win && win.webContents.send('open-settings') },
           { type: 'separator' },
           hotkeySubmenu(),
           sparkHeightSubmenu(),

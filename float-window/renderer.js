@@ -67,6 +67,8 @@ try {
 
 // 界面状态（折叠分组/排序开关），localStorage 持久化
 const uiState = loadUIState();
+document.getElementById('opacitySlider').value = uiState.opacity;
+ipcRenderer.send('win-opacity', uiState.opacity / 100);
 
 const hotkeyStatusEl = document.getElementById('hotkeyStatus');
 function renderHotkeyStatus(status) {
@@ -93,6 +95,7 @@ function loadUIState() {
       groupSort: !!s.groupSort,
       stockSort: !!s.stockSort,
       bw: !!s.bw,
+      opacity: Math.max(15, Math.min(100, Number(s.opacity) || 92)),
       upColor: normalizeColor(s.upColor, DEFAULT_UP_COLOR),
       downColor: normalizeColor(s.downColor, DEFAULT_DOWN_COLOR),
       sparkH: Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, Number(s.sparkH) || SPARK_BASE_HEIGHT)),
@@ -106,7 +109,7 @@ function loadUIState() {
   } catch (err) {
     console.error('读取界面状态失败：', err.message);
     return {
-      collapsed: {}, pinned: [], groupSort: false, stockSort: false, sparkH: SPARK_BASE_HEIGHT,
+      collapsed: {}, pinned: [], groupSort: false, stockSort: false, bw: false, opacity: 92, sparkH: SPARK_BASE_HEIGHT,
       upColor: DEFAULT_UP_COLOR, downColor: DEFAULT_DOWN_COLOR,
       chart: { maPeriods: [5, 10, 20], macd: { fast: 12, slow: 26, signal: 9 }, kdj: { period: 9, k: 3, d: 3 }, subcharts: ['volume', 'macd'] },
     };
@@ -675,7 +678,9 @@ document.getElementById('confirmYes').addEventListener('click', () => {
 document.getElementById('confirmNo').addEventListener('click', hideConfirm);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (alertPanelEl.style.display === 'block') {
+    if (settingsPanelEl.classList.contains('show')) {
+      closeSettingsPanel();
+    } else if (alertPanelEl.style.display === 'block') {
       closeAlertPanel();
     } else if (helpPanelEl.style.display === 'block') {
       helpPanelEl.style.display = 'none';
@@ -753,7 +758,15 @@ syncSortButtons();
 
 // 透明度：底部滑杆（滚轮不再参与，列表内滚轮为原生滚动）
 document.getElementById('opacitySlider').addEventListener('input', (e) => {
-  ipcRenderer.send('win-opacity', Number(e.target.value) / 100);
+  const value = Number(e.target.value);
+  uiState.opacity = value;
+  saveUIState();
+  ipcRenderer.send('win-opacity', value / 100);
+  const settingsOpacity = document.getElementById('settingsOpacity');
+  if (settingsOpacity) {
+    settingsOpacity.value = value;
+    document.getElementById('settingsOpacityV').textContent = `${value}%`;
+  }
 });
 
 // 滚轮：图表视图下缩放时间周期（分时缩到最近 N 分钟 / K线缩到最近 N 根，上滚放大/下滚缩小）
@@ -970,25 +983,91 @@ document.getElementById('btnHelp').addEventListener('click', () => {
 });
 
 // ---- 分时缩略图设置面板（仅高度；宽度自动占用剩余空间） ----
-const sparkSettingsEl = document.getElementById('sparkSettings');
+const settingsPanelEl = document.getElementById('settingsPanel');
+let settingsReturnChart = false;
 function syncSparkSettings() {
-  document.getElementById('sparkH').value = uiState.sparkH;
-  document.getElementById('sparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
-  document.getElementById('upColor').value = uiState.upColor;
-  document.getElementById('upColorV').textContent = uiState.upColor;
-  document.getElementById('downColor').value = uiState.downColor;
-  document.getElementById('downColorV').textContent = uiState.downColor;
+  document.getElementById('settingsSparkH').value = uiState.sparkH;
+  document.getElementById('settingsSparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
+  document.getElementById('settingsUpColor').value = uiState.upColor;
+  document.getElementById('settingsUpColorV').textContent = uiState.upColor;
+  document.getElementById('settingsDownColor').value = uiState.downColor;
+  document.getElementById('settingsDownColorV').textContent = uiState.downColor;
+}
+function syncSettingsHotkey(status) {
+  const select = document.getElementById('settingsHotkey');
+  const state = document.getElementById('settingsHotkeyStatus');
+  if (!status) return;
+  select.value = status.configured || 'alt+q';
+  state.textContent = status.registered ? `${status.active} 已注册` : '当前快捷键未注册';
+  state.className = status.registered ? 'ok' : 'error';
+}
+function openSettingsPanel() {
+  settingsReturnChart = !!chartCode;
+  settingsPanelEl.classList.add('show');
+  document.getElementById('list').style.display = 'none';
+  document.getElementById('addPanel').style.display = 'none';
+  document.getElementById('alertPanel').style.display = 'none';
+  document.getElementById('helpPanel').style.display = 'none';
+  document.getElementById('confirmBar').style.display = 'none';
+  if (settingsReturnChart) chartView.classList.remove('show');
+  document.getElementById('settingsOpacity').value = document.getElementById('opacitySlider').value;
+  document.getElementById('settingsOpacityV').textContent = `${document.getElementById('settingsOpacity').value}%`;
+  document.getElementById('settingsBw').checked = uiState.bw;
+  document.getElementById('settingsGroupSort').checked = uiState.groupSort;
+  document.getElementById('settingsStockSort').checked = uiState.stockSort;
+  syncSparkSettings();
+  syncSortButtons();
+  setChartSettingsForm(getChartSettings());
+  document.getElementById('chartSettings').classList.add('show');
+  ipcRenderer.invoke('hotkey-status').then(syncSettingsHotkey).catch(() => {});
+}
+function closeSettingsPanel() {
+  settingsPanelEl.classList.remove('show');
+  document.getElementById('chartSettings').classList.remove('show');
+  if (settingsReturnChart && chartCode) chartView.classList.add('show');
+  else document.getElementById('list').style.display = '';
+  settingsReturnChart = false;
+  if (lastQuotes) render(lastQuotes);
 }
 document.getElementById('btnSparkSet').addEventListener('click', () => {
-  sparkSettingsEl.style.display = sparkSettingsEl.style.display === 'block' ? 'none' : 'block';
-  syncSparkSettings();
+  openSettingsPanel();
 });
-document.getElementById('sparkH').addEventListener('input', (e) => {
+document.getElementById('settingsSparkH').addEventListener('input', (e) => {
   uiState.sparkH = Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, parseInt(e.target.value, 10) || SPARK_BASE_HEIGHT));
-  document.getElementById('sparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
+  document.getElementById('settingsSparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
   saveUIState();
   if (lastQuotes) render(lastQuotes);
 });
+document.getElementById('settingsOpacity').addEventListener('input', (e) => {
+  const value = Number(e.target.value);
+  uiState.opacity = value;
+  saveUIState();
+  document.getElementById('opacitySlider').value = value;
+  document.getElementById('settingsOpacityV').textContent = `${value}%`;
+  ipcRenderer.send('win-opacity', value / 100);
+});
+document.getElementById('settingsBw').addEventListener('change', (e) => {
+  uiState.bw = e.target.checked;
+  saveUIState();
+  syncBw();
+});
+document.getElementById('settingsGroupSort').addEventListener('change', (e) => {
+  uiState.groupSort = e.target.checked;
+  saveUIState();
+  syncSortButtons();
+  if (lastQuotes) render(lastQuotes);
+});
+document.getElementById('settingsStockSort').addEventListener('change', (e) => {
+  uiState.stockSort = e.target.checked;
+  saveUIState();
+  syncSortButtons();
+  if (lastQuotes) render(lastQuotes);
+});
+document.getElementById('settingsHotkeyApply').addEventListener('click', () => {
+  ipcRenderer.invoke('hotkey-set', document.getElementById('settingsHotkey').value)
+    .then(syncSettingsHotkey).catch(() => {});
+});
+document.getElementById('settingsClose').addEventListener('click', closeSettingsPanel);
 
 ipcRenderer.on('set-spark-height', (_event, height) => {
   uiState.sparkH = Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, parseInt(height, 10) || SPARK_BASE_HEIGHT));
@@ -996,6 +1075,8 @@ ipcRenderer.on('set-spark-height', (_event, height) => {
   saveUIState();
   if (lastQuotes) render(lastQuotes);
 });
+
+ipcRenderer.on('open-settings', () => openSettingsPanel());
 
 // ---- 股价预警配置面板（按个股） ----
 const alertPanelEl = document.getElementById('alertPanel');
@@ -1148,23 +1229,23 @@ function applyTradeColors() {
   uiState.downColor = C_DOWN;
   document.documentElement.style.setProperty('--up-color', C_UP);
   document.documentElement.style.setProperty('--down-color', C_DOWN);
-  const upInput = document.getElementById('upColor');
-  const downInput = document.getElementById('downColor');
+  const upInput = document.getElementById('settingsUpColor');
+  const downInput = document.getElementById('settingsDownColor');
   if (upInput) upInput.value = C_UP;
   if (downInput) downInput.value = C_DOWN;
-  const upValue = document.getElementById('upColorV');
-  const downValue = document.getElementById('downColorV');
+  const upValue = document.getElementById('settingsUpColorV');
+  const downValue = document.getElementById('settingsDownColorV');
   if (upValue) upValue.textContent = C_UP;
   if (downValue) downValue.textContent = C_DOWN;
 }
-document.getElementById('upColor').addEventListener('input', (e) => {
+document.getElementById('settingsUpColor').addEventListener('input', (e) => {
   uiState.upColor = normalizeColor(e.target.value, DEFAULT_UP_COLOR);
   applyTradeColors();
   saveUIState();
   if (lastQuotes) render(lastQuotes);
   if (chartCode && lastChartData) renderChart();
 });
-document.getElementById('downColor').addEventListener('input', (e) => {
+document.getElementById('settingsDownColor').addEventListener('input', (e) => {
   uiState.downColor = normalizeColor(e.target.value, DEFAULT_DOWN_COLOR);
   applyTradeColors();
   saveUIState();
@@ -1859,17 +1940,16 @@ function syncChartTabs() {
 const chartSettingsEl = document.getElementById('chartSettings');
 setChartSettingsForm(getChartSettings());
 document.getElementById('chartSettingsToggle').addEventListener('click', () => {
-  setChartSettingsForm(getChartSettings());
-  chartSettingsEl.classList.toggle('show');
+  openSettingsPanel();
 });
 document.getElementById('chartSettingsApply').addEventListener('click', () => {
   applyChartSettings(readChartSettingsForm());
-  chartSettingsEl.classList.remove('show');
+  closeSettingsPanel();
 });
 document.getElementById('chartSettingsReset').addEventListener('click', () => {
   setChartSettingsForm(DEFAULT_CHART_SETTINGS);
   applyChartSettings(DEFAULT_CHART_SETTINGS);
-  chartSettingsEl.classList.remove('show');
+  closeSettingsPanel();
 });
 
 function openChart(code, name) {
