@@ -11,6 +11,11 @@ const DOWN_COLOR_CLS = 'down';
 const SPARK_BASE_HEIGHT = 26;
 const SPARK_MIN_HEIGHT = SPARK_BASE_HEIGHT;
 const SPARK_MAX_HEIGHT = SPARK_BASE_HEIGHT * 5;
+const DEFAULT_UP_COLOR = '#f0c828';
+const DEFAULT_DOWN_COLOR = '#6fb1ff';
+function normalizeColor(value, fallback) {
+  return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback;
+}
 
 /** 读 VSCode settings.json（容忍 JSONC 注释） */
 async function loadLeekConfig() {
@@ -88,6 +93,8 @@ function loadUIState() {
       groupSort: !!s.groupSort,
       stockSort: !!s.stockSort,
       bw: !!s.bw,
+      upColor: normalizeColor(s.upColor, DEFAULT_UP_COLOR),
+      downColor: normalizeColor(s.downColor, DEFAULT_DOWN_COLOR),
       sparkH: Math.max(SPARK_MIN_HEIGHT, Math.min(SPARK_MAX_HEIGHT, Number(s.sparkH) || SPARK_BASE_HEIGHT)),
       chart: {
         maPeriods: Array.isArray(chart.maPeriods) && chart.maPeriods.length === 3 ? chart.maPeriods : [5, 10, 20],
@@ -100,6 +107,7 @@ function loadUIState() {
     console.error('读取界面状态失败：', err.message);
     return {
       collapsed: {}, pinned: [], groupSort: false, stockSort: false, sparkH: SPARK_BASE_HEIGHT,
+      upColor: DEFAULT_UP_COLOR, downColor: DEFAULT_DOWN_COLOR,
       chart: { maPeriods: [5, 10, 20], macd: { fast: 12, slow: 26, signal: 9 }, kdj: { period: 9, k: 3, d: 3 }, subcharts: ['volume', 'macd'] },
     };
   }
@@ -466,14 +474,14 @@ function drawSpark(canvas, record) {
   };
   ctx.lineWidth = 1.2;
   ctx.save();
-  ctx.strokeStyle = '#f0c828';
+  ctx.strokeStyle = C_UP;
   ctx.beginPath();
   ctx.rect(padL, 0, cw - padL - padR, Math.max(0, midY));
   ctx.clip();
   strokeLine();
   ctx.restore();
   ctx.save();
-  ctx.strokeStyle = '#6fb1ff';
+  ctx.strokeStyle = C_DOWN;
   ctx.beginPath();
   ctx.rect(padL, Math.min(ch, Math.max(0, midY)), cw - padL - padR, ch);
   ctx.clip();
@@ -966,6 +974,10 @@ const sparkSettingsEl = document.getElementById('sparkSettings');
 function syncSparkSettings() {
   document.getElementById('sparkH').value = uiState.sparkH;
   document.getElementById('sparkHV').textContent = `${(uiState.sparkH / SPARK_BASE_HEIGHT).toFixed(1)}×`;
+  document.getElementById('upColor').value = uiState.upColor;
+  document.getElementById('upColorV').textContent = uiState.upColor;
+  document.getElementById('downColor').value = uiState.downColor;
+  document.getElementById('downColorV').textContent = uiState.downColor;
 }
 document.getElementById('btnSparkSet').addEventListener('click', () => {
   sparkSettingsEl.style.display = sparkSettingsEl.style.display === 'block' ? 'none' : 'block';
@@ -1120,14 +1132,46 @@ let chartHover = null; // { x, y } 鼠标位置（画布 CSS 像素）
 const chartCache = new Map(); // `${code}:${mode}` -> { time, data }
 
 const MINUTE_K_PERIODS = new Set(['m1', 'm5', 'm15', 'm60', 'm120']);
-const C_UP = '#f0c828'; // 涨=黄
-const C_DOWN = '#6fb1ff'; // 跌=蓝
+let C_UP = DEFAULT_UP_COLOR; // 涨色
+let C_DOWN = DEFAULT_DOWN_COLOR; // 跌色
 const C_AVG = '#e8e8e8'; // 均价线=白（与涨色区分）
 const C_GRID = 'rgba(255,255,255,0.10)';
 const C_TEXT = '#b8b8b8';
 const C_MA5 = '#ff9f43';
 const C_MA10 = '#4dd0e1';
 const C_MA20 = '#c88fff';
+
+function applyTradeColors() {
+  C_UP = normalizeColor(uiState.upColor, DEFAULT_UP_COLOR);
+  C_DOWN = normalizeColor(uiState.downColor, DEFAULT_DOWN_COLOR);
+  uiState.upColor = C_UP;
+  uiState.downColor = C_DOWN;
+  document.documentElement.style.setProperty('--up-color', C_UP);
+  document.documentElement.style.setProperty('--down-color', C_DOWN);
+  const upInput = document.getElementById('upColor');
+  const downInput = document.getElementById('downColor');
+  if (upInput) upInput.value = C_UP;
+  if (downInput) downInput.value = C_DOWN;
+  const upValue = document.getElementById('upColorV');
+  const downValue = document.getElementById('downColorV');
+  if (upValue) upValue.textContent = C_UP;
+  if (downValue) downValue.textContent = C_DOWN;
+}
+document.getElementById('upColor').addEventListener('input', (e) => {
+  uiState.upColor = normalizeColor(e.target.value, DEFAULT_UP_COLOR);
+  applyTradeColors();
+  saveUIState();
+  if (lastQuotes) render(lastQuotes);
+  if (chartCode && lastChartData) renderChart();
+});
+document.getElementById('downColor').addEventListener('input', (e) => {
+  uiState.downColor = normalizeColor(e.target.value, DEFAULT_DOWN_COLOR);
+  applyTradeColors();
+  saveUIState();
+  if (lastQuotes) render(lastQuotes);
+  if (chartCode && lastChartData) renderChart();
+});
+applyTradeColors();
 const DEFAULT_CHART_SETTINGS = {
   maPeriods: [5, 10, 20],
   macd: { fast: 12, slow: 26, signal: 9 },
@@ -1704,7 +1748,7 @@ function drawCrosshair(ctx, w, h) {
     const gw = gapLabel.length * 7;
     ctx.fillStyle = 'rgba(16,16,20,0.85)';
     ctx.fillRect(2, 2, gw + 8, 14);
-    ctx.fillStyle = gap >= 0 ? '#f0c828' : '#6fb1ff';
+    ctx.fillStyle = gap >= 0 ? C_UP : C_DOWN;
     ctx.fillText(gapLabel, 6, 13);
   }
   const prevClose = g.prevClose;
@@ -1716,15 +1760,19 @@ function drawCrosshair(ctx, w, h) {
   const lw = pctLabel.length * 7;
   ctx.fillStyle = 'rgba(16,16,20,0.85)';
   ctx.fillRect(0, cy - 7, lw + 8, 14);
-  ctx.fillStyle = pct >= 0 ? '#f0c828' : '#6fb1ff';
+  ctx.fillStyle = pct >= 0 ? C_UP : C_DOWN;
   ctx.fillText(pctLabel, 4, cy + 3);
 
   // 右侧：价格（右对齐）
   const pw = priceLabel.length * 7;
+  const priceBoxRight = w - g.padR;
+  // 标签底边贴着横向坐标线，价格显示在线上方，避免盖住十字线附近的K线。
+  const priceBoxBottom = cy >= 16 ? cy : Math.min(h, cy + 18);
+  const priceBoxTop = priceBoxBottom - 14;
   ctx.fillStyle = 'rgba(16,16,20,0.85)';
-  ctx.fillRect(w - g.padR - pw - 4, cy - 7, pw + 8, 14);
+  ctx.fillRect(priceBoxRight - pw - 4, priceBoxTop, pw + 8, 14);
   ctx.fillStyle = '#e8e8e8';
-  ctx.fillText(priceLabel, w - g.padR - pw - 4, cy + 3);
+  ctx.fillText(priceLabel, priceBoxRight - pw - 4, priceBoxBottom - 3);
 
   // 底部坐标栏显示当前点数据
   chartInfoEl.textContent = g.infoLines(i).join(' ');

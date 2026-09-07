@@ -288,8 +288,8 @@
       background: rgba(255, 255, 255, 0.04);
     }
     #alertList .alert-item .del { color: #ff6b6b; cursor: pointer; padding: 0 4px; }
-    .up { color: #f0c828; }
-    .down { color: #6fb1ff; }
+    .up { color: var(--up-color, #f0c828); }
+    .down { color: var(--down-color, #6fb1ff); }
     .flat { color: #c8c8c8; }
     .risk { color: #f0c828; font-weight: 600; }
     #hotkeyStatus { max-width: 118px; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -357,6 +357,7 @@
     }
     #sparkSettings label { display: flex; align-items: center; gap: 4px; }
     #sparkSettings input[type="range"] { width: 90px; accent-color: #f0c828; }
+    #sparkSettings input[type="color"] { width: 28px; height: 20px; padding: 0; border: 1px solid rgba(255,255,255,0.18); background: transparent; cursor: pointer; }
     #sparkSettings span { width: 26px; text-align: right; color: #e8e8e8; }
   </style>
 </head>
@@ -426,6 +427,8 @@
     </div>
     <div id="sparkSettings">
       <label>行高 <input type="range" id="sparkH" min="26" max="130" step="1" value="26" /><span id="sparkHV">1.0×</span></label>
+      <label>涨色 <input type="color" id="upColor" value="#f0c828" /><span id="upColorV">#f0c828</span></label>
+      <label>跌色 <input type="color" id="downColor" value="#6fb1ff" /><span id="downColorV">#6fb1ff</span></label>
     </div>
     <div id="alertPanel">
       <div class="alert-head"><span id="alertStockName">--</span><button id="alertClose" title="关闭">✕</button></div>
@@ -453,7 +456,7 @@
       <p><b>分时缩略图</b>：每行内嵌当日分时图（0轴上方黄、下方蓝），每 5 秒刷新；底部 ⚙ 可调行高（1–5 倍），也可以在窗口右键菜单中直接选择；窗口变宽时缩略图自动占用剩余空间，Y轴自动适配。</p>
       <p><b>图表与预警</b>：点击任意个股打开分时图/K线；顶部下拉可切换 1/5/15/60/120 分钟、日/周/月 K。K线模式点击⚙可设置 MA、MACD、KDJ 参数，以及 0–3 个副图和每个副图的内容。滚轮缩放时间轴、按住拖动平移、鼠标悬停显示十字坐标与数据；点击右上角🔔可直接按当前图表价位设置预警。← 或 Esc 返回列表。</p>
       <p><b>自动分组</b>：应用会自动创建「warning」分组；预警条件成立时个股自动加入，条件失效且没有其它相关预警成立时自动移出。</p>
-      <p><b>显示</b>：底部滑杆调窗口透明度；标题栏「黑白」切换灰度模式。</p>
+      <p><b>显示</b>：底部滑杆调窗口透明度；标题栏「黑白」切换灰度模式；底部⚙可自定义涨色和跌色。</p>
       <p><b>托盘 / 快捷键</b>：Alt+Q 显示/隐藏悬浮窗；若当前组合键被占用，应用会提示并在底部显示状态；系统托盘左键切换、右键菜单退出；窗口内右键菜单可刷新。</p>
       <p><b>配置</b>：股票与分组数据保存在本地 userData 配置，不依赖 VSCode，随 exe 直接可用。</p>
     </div>
