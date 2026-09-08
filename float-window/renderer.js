@@ -1837,23 +1837,29 @@ function drawCrosshair(ctx, w, h) {
   const pctLabel = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
   const priceLabel = fmtPrice(price, g.dec);
 
-  // 左侧：涨跌百分比
-  const lw = pctLabel.length * 7;
-  ctx.fillStyle = 'rgba(16,16,20,0.85)';
-  ctx.fillRect(0, cy - 7, lw + 8, 14);
-  ctx.fillStyle = pct >= 0 ? C_UP : C_DOWN;
-  ctx.fillText(pctLabel, 4, cy + 3);
-
-  // 右侧：价格（右对齐）
+  // 左侧：价格在横向十字线（X轴线）上方，涨跌幅在下方。
+  const labelH = 14;
   const pw = priceLabel.length * 7;
-  const priceBoxRight = w - g.padR;
-  // 标签底边贴着横向坐标线，价格显示在线上方，避免盖住十字线附近的K线。
-  const priceBoxBottom = cy >= 16 ? cy : Math.min(h, cy + 18);
-  const priceBoxTop = priceBoxBottom - 14;
+  const lw = pctLabel.length * 7;
+  let priceBoxTop = cy - labelH;
+  let pctBoxTop = cy + 1;
+  // 靠近顶部/底部时将两块标签整体移入画布，保持价格与涨跌幅不重叠。
+  if (priceBoxTop < 0) {
+    priceBoxTop = 0;
+    pctBoxTop = labelH + 1;
+  }
+  if (pctBoxTop + labelH > h) {
+    pctBoxTop = h - labelH;
+    priceBoxTop = Math.max(0, pctBoxTop - labelH - 1);
+  }
   ctx.fillStyle = 'rgba(16,16,20,0.85)';
-  ctx.fillRect(priceBoxRight - pw - 4, priceBoxTop, pw + 8, 14);
+  ctx.fillRect(0, priceBoxTop, pw + 8, labelH);
   ctx.fillStyle = '#e8e8e8';
-  ctx.fillText(priceLabel, priceBoxRight - pw - 4, priceBoxBottom - 3);
+  ctx.fillText(priceLabel, 4, priceBoxTop + 11);
+  ctx.fillStyle = 'rgba(16,16,20,0.85)';
+  ctx.fillRect(0, pctBoxTop, lw + 8, labelH);
+  ctx.fillStyle = pct >= 0 ? C_UP : C_DOWN;
+  ctx.fillText(pctLabel, 4, pctBoxTop + 11);
 
   // 底部坐标栏显示当前点数据
   chartInfoEl.textContent = g.infoLines(i).join(' ');
